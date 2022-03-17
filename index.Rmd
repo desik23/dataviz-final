@@ -102,9 +102,10 @@ m<-leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>%
 ```
 
 ## Suitable Wind Energy Project Areas: Western Region
+This interactive map shows 1km cells of predicted wind sites **in dark blue-purple** based on the important variables in previously successful projects in the Western region.
 ```{r, echo=FALSE}
 #display leaflet map
 m
 ```
 
-This interactive map shows 1km cells of predicted wind sites **in dark blue-purple** based on the important variables in previously successful projects in the Western region. The various hotspots for further development are more visible in this approach. The machine learning model can be customized based on additional investor constraints and priorities to minimize risk in their investments. The trends visible can be explained by the importance of roads and transmissions lines. Further research is being conducted on other important factors.
+The various hotspots for further development are more visible in this approach. The machine learning model can be customized based on additional investor constraints and priorities to minimize risk in their investments. The trends visible can be explained by the importance of roads and transmissions lines. Further research is being conducted on other important factors.
