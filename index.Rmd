@@ -1,0 +1,110 @@
+---
+title: "Energy Siting: The Prototype"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dismo)
+library(sp)
+library(sf)
+require(rgdal)
+library(raster)
+library(fasterize) ## convert sf polygons to raster
+library(ggplot2)
+library(dplyr)
+library(gdalUtils)
+#library(tmap)
+library(maptools)
+require(rgeos)
+library(dismo)
+library(stargazer)
+library(randomForest)
+library(ranger)
+library(gdistance)
+library(tmap)
+library(leaflet)
+```
+
+```{r, include=FALSE}
+data_path <- "~/github/dataviz-final/data/"
+```
+
+```{r, include=FALSE}
+US <- getData("GADM",country="USA",level=1)
+states    <- c('California', 'Nevada', 'Utah','Montana', 'Idaho', 'Oregon', 'Washington', 'Arizona', 'New Mexico','Colorado', 'Wyoming')
+non_cont_states  <- c('Alaska', 'Hawaii')
+US <- US[!US$NAME_1 %in% non_cont_states,]
+WEST <- US[US$NAME_1 %in% states,]
+EXCLUDED <- US[!US$NAME_1 %in% states,]
+plot(EXCLUDED, axes=TRUE)
+spTransform(EXCLUDED, CRS("+proj=aea +lat_0=23 +lon_0=-114 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"))
+spTransform(WEST, CRS("+proj=aea +lat_0=23 +lon_0=-114 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs"))
+```
+
+```{r, include=FALSE}
+## read template raster (environmental scores)
+#env <- as.raster(arc.raster(arc.open(file.path(fgdb_inputs,"EnvExclusions_WECC_comb"))))
+env <- raster(file.path(data_path,"EnvExclusions_WECC_comb.tif"))
+names(env) <- "env"
+
+####################################
+## fix extents function
+e <- extent(env)
+
+fixExtent <- function(template, ext_template, in_ras){
+  
+  ## https://gis.stackexchange.com/questions/158159/snapping-raster-grids-in-r
+  in_ras = resample(in_ras, template, "bilinear")
+  in_ras <- crop(in_ras, ext_template)
+  
+  if(sum(as.matrix(extent(in_ras))!=as.matrix(ext_template)) == 0){ # edited
+    in_ras_mask <- mask(in_ras, template) # You can't mask with extent, only with a Raster layer, RStack or RBrick
+  }else{
+    in_ras <- extend(in_ras, template)
+    in_ras_mask <- mask(in_ras, template)
+  }
+  return(in_ras_mask)
+}
+```
+
+```{r, include=FALSE}
+library(raster)
+library(tidyverse)
+library(basemaps)
+library(ggplot2)
+rfpred <- raster(paste(file.path(data_path, "randomForest_Pred_wind_2018.tif")))
+wSL1.final <- raster(paste(file.path(data_path,"wind_CandidateProjectArea_SitingLevel1_20210416_exPlRemoved_raster1.tif")))
+rf_pred_presence <-rfpred
+rf_pred_presence[rf_pred_presence==0] <- NA
+#transmission_presence <-transmission
+#transmission_presence[transmission_presence==0] <- NA
+
+## fix extent of wSL1.final
+wSL1.final.fixed <- fixExtent(template = env, ext_template = extent(env), in_ras = wSL1.final)
+  ## save to file
+rf_pred_presence_fixed <- mask(rf_pred_presence, wSL1.final.fixed)
+rf_pred_presence_unsuitable <- rf_pred_presence - rf_pred_presence_fixed
+
+#rf.pred.df <- as.data.frame(rf_pred_presence, na.rm = TRUE)
+
+```
+
+
+
+```{r, include=FALSE}
+library(mapview)
+m<-leaflet() %>% addProviderTiles(providers$CartoDB.Positron) %>% 
+ addPolygons(data= WEST, color = "none", fillColor = "white") %>% 
+  addRasterImage(rf_pred_presence_fixed,
+                colors = "slateblue4") %>% 
+ addPolygons(data= EXCLUDED, color = "none", fillColor = "black", fillOpacity = 0.1) 
+```
+
+## Suitable Wind Energy Project Areas: Western Region
+```{r, echo=FALSE}
+#display leaflet map
+m
+```
+
+This interactive map shows 1km cells of predicted wind sites **in dark blue-purple** based on the important variables in previously successful projects in the Western region. The various hotspots for further development are more visible in this approach. The machine learning model can be customized based on additional investor constraints and priorities to minimize risk in their investments. The trends visible can be explained by the importance of roads and transmissions lines. Further research is being conducted on other important factors.
